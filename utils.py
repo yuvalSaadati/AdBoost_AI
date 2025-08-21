@@ -1,3 +1,4 @@
+from typing import List, Dict, Any, Optional
 import joblib
 from typing import Dict, Any
 import re
@@ -290,6 +291,131 @@ def _brief_from_features(req: Dict[str, Any]) -> str:
         else:
             bullets.append(f"- Rule: {k} {v['op']} {v['thr']:.2f}")
     return "\n".join(bullets)
+
+# dspy_data_loader.py
+
+
+# Features you use as binary presence (for interpreting the rule path)
+BINARY_FEATURES = {
+    "FeelingBase", "FreeOffers", "Quality", "ProductLineup", "Speed",
+    "UserFriendliness", "SocialIdentity", "ProductDescription", "Motive",
+    "Curiosity", "Personalization"
+}
+NUMERIC_FEATURES = {"Arousal", "Valence"}
+
+
+def _features_from_rule_path(rule_path: str) -> Dict[str, Any]:
+    """
+    Parse a path like 'Speed > 0.500 AND FreeOffers > 0.500 AND Valence > -0.500'
+    -> {'Speed': True, 'FreeOffers': True, 'Valence': {'op': '>', 'thr': -0.5}}
+    """
+    out: Dict[str, Any] = {}
+    if not rule_path or "no splits" in rule_path:
+        return out
+
+    parts = [p.strip() for p in rule_path.split("AND")]
+    for p in parts:
+        m = re.match(r"^([A-Za-z0-9_]+)\s*(<=|>)\s*([\-]?\d+\.?\d*)$", p)
+        if not m:
+            continue
+        feat, op, thr_s = m.group(1), m.group(2), m.group(3)
+        thr = float(thr_s)
+
+        if feat in BINARY_FEATURES:
+            # Treat > 0.5 as "present", <= 0.5 as "absent"
+            if op == ">" and thr >= 0.5:
+                out[feat] = True
+            elif op == "<=" and thr < 0.5:
+                out[feat] = False
+            else:
+                out[feat] = {"op": op, "thr": thr}
+        elif feat in NUMERIC_FEATURES:
+            out[feat] = {"op": op, "thr": thr}
+        else:
+            out[feat] = {"op": op, "thr": thr}
+    return out
+
+
+def _pick(df: pd.DataFrame, name: str) -> Optional[str]:
+    """Case-insensitive column finder."""
+    name_l = name.lower()
+    for c in df.columns:
+        if c.lower() == name_l:
+            return c
+    return None
+
+
+def load_train_examples_from_excel(
+    path: str,
+    use_rule_path_to_constraints: bool = True,
+    limit: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """
+    Reads 'regenerate ads.xlsx' and returns a list of training examples for DSPy.
+    Expected columns:
+      - Headline 1, Headline 2, Headline 3
+      - Description 1, Description 2, Description 3
+      - New Decision Path  (rule path or constraints)
+    """
+    df = pd.read_excel(path)
+
+    h1 = _pick(df, "Headline 1")
+    h2 = _pick(df, "Headline 2")
+    h3 = _pick(df, "Headline 3")
+    d1 = _pick(df, "Description 1")
+    d2 = _pick(df, "Description 2")
+    d3 = _pick(df, "Description 3")
+    cp = _pick(df, "New Decision Path") or _pick(
+        df, "Constraints") or _pick(df, "Decision Path")
+
+    examples: List[Dict[str, Any]] = []
+
+    for _, row in df.iterrows():
+        headlines = []
+        for col in [h1, h2, h3]:
+            if col and pd.notna(row[col]):
+                val = str(row[col]).strip()
+                if val:
+                    headlines.append(val)
+
+        descs = []
+        for col in [d1, d2, d3]:
+            if col and pd.notna(row[col]):
+                val = str(row[col]).strip()
+                if val:
+                    descs.append(val)
+
+        # Title: combine non-empty headlines into one line
+        title = " | ".join(headlines) if headlines else ""
+        # Description: combine descriptions into one sentence-ish block
+        description = " ".join(descs) if descs else ""
+
+        # Constraints
+        raw_path = ""
+        if cp and pd.notna(row[cp]):
+            raw_path = str(row[cp]).strip()
+
+        if use_rule_path_to_constraints and raw_path:
+            feats = _features_from_rule_path(raw_path)
+            constraints = _brief_from_features(feats) if feats else raw_path
+        else:
+            constraints = raw_path  # assume already a human-written constraints block
+
+        # Skip empty rows
+        if not title and not description:
+            continue
+
+        examples.append({
+            "title": title,
+            "description": description,
+            "constraints": constraints,
+            "rewritten": None  # no gold; DSPy will optimize via your metric
+        })
+
+        if limit and len(examples) >= limit:
+            break
+
+    return examples
 
 
 def generate_ad_with_gemini(title: str, description: str, rule_path: Dict[str, Any]) -> dict:

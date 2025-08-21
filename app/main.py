@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 from utils import *
 import joblib
 import google.generativeai as genai
-
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY") or "your_api_key_here")
 
