@@ -1,0 +1,41 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.venv/
+env/
+ENV/
+
+# Distribution / packaging
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# VS Code settings
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Logs
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Python dotenv
+.env
+
+# SQLite / local db
+*.db
+
+# Excel/CSV test files uploaded
+*.xlsx
+*.xls
+*.csv

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ad Optimizer</title>
+<link rel="stylesheet" href="styles.css" />
+<script>
+    // Change this to your backend address in production
+    window.API_BASE_URL = "http://127.0.0.1:8000"; 
+    // e.g. "https://your-backend.onrender.com"
+  </script>
+</head>
+<body>
+<main class="container">
+<h1>Ad Optimizer</h1>
+
+<form id="ad-form">
+    <div class="grid">
+    <label>
+    Current Title
+    <input type="text" name="title" placeholder="e.g., Buy Shoes Online" required />
+    </label>
+    </div>
+    <div class="grid">
+    <label>
+    Current Description
+    <input type="text" name="description" placeholder="e.g., Free shipping on all orders" required />
+    </label>
+    </div>
+    <div class="grid">
+    <label>
+    Current CTR (%)
+    <input type="number" name="current_ctr" step="0.01" placeholder="e.g., 3.2" required />
+    </label>
+    </div>
+    <hr style="opacity:.2;margin:16px 0" />
+    <div class="grid">
+    <label>
+    Upload Excel (optional)
+    <input type="file" name="file" accept=".xlsx,.xls,.csv" />
+    <small>Send a sheet to bulk-optimize rows. We’ll download an optimized .xlsx.</small>
+    </label>
+    </div>
+    <div class="actions">
+    <button id="submitBtn" type="submit">Submit</button>
+    </div>
+    </form>
+
+    <section id="result" class="hidden"></section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
